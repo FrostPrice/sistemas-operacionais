@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.py": "python",
+    "system_error": "c",
+    "socket.h": "c"
+  }
+}
