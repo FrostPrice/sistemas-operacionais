@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <time.h> // Adicionando biblioteca time.h para lidar com o tempo
 
 // Constantes
 #define NUM_THREADS 3
@@ -24,6 +26,8 @@ double totalWeight = 0;
 Sensor sensors[NUM_THREADS];
 pthread_t sensors_threads[NUM_THREADS];
 pthread_attr_t threads_attr;
+time_t last_display_time = 0;
+time_t current_time;
 
 void* sensorThread(void* param) {
     Sensor* sensor = (Sensor*)param;
@@ -38,17 +42,22 @@ void* sensorThread(void* param) {
         sensor->weight += WEIGHTS[sensor->id];
         totalWeight += WEIGHTS[sensor->id];
 
-
-        // Fazer isso esperar 2 segundos para mandar a mensagem
-        sprintf(sender_message, "Esteira %d: %d itens, peso total: %.2f kg\n", sensor->id, sensor->items_count, sensor->weight);
-        write(1, sender_message, sizeof(sender_message));
-
+        // Verificar se é necessário atualizar o peso total
         if (totalItemsCount % ITEMS_UPDATE_WEIGHT == 0) {
-            sprintf(sender_message, "Peso total dos itens: %.2f\n", totalWeight);
+            sprintf(sender_message, "Quantidade total de Itens: %d, Peso total dos itens: %.2f Kg\n",totalItemsCount, totalWeight);
             write(1, sender_message, sizeof(sender_message));
         }
 
-        sleep(INTERVALS[sensor->id]);
+        // Fazer isso esperar 2 segundos para mandar a mensagem
+        current_time = time(NULL);
+        if (current_time - last_display_time >= DISPLAY_SECONDS_INTERVAL) {
+            // sprintf(sender_message, "Esteira %d: %d itens, peso total: %.2f kg\n", sensor->id, sensor->items_count, sensor->weight);
+            sprintf(sender_message, "Contagem total de itens: %d\n", totalItemsCount); // Exibir a contagem total de itens
+            write(1, sender_message, sizeof(sender_message));
+            last_display_time = current_time;
+        }
+
+        usleep(INTERVALS[sensor->id] * 1000000);
     }
 
     pthread_exit(0);

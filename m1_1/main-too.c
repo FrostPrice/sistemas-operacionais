@@ -49,14 +49,15 @@ void* sensorThread(void* param) {
 
         // Verificar se é necessário atualizar o peso total
         if (totalItemsCount % ITEMS_UPDATE_WEIGHT == 0) {
-            sprintf(sender_message, "Peso total dos itens: %.2f\n", totalWeight);
+            sprintf(sender_message, "Quantidade total de Itens: %d, Peso total dos itens: %.2f Kg\n",totalItemsCount, totalWeight);
             write(pipe_fd[1], sender_message, sizeof(sender_message));
         }
 
         // Verificar se é necessário enviar a contagem para exibição
         current_time = time(NULL);
         if (current_time - last_display_time >= DISPLAY_SECONDS_INTERVAL) {
-            sprintf(sender_message, "Esteira %d: %d itens, peso total: %.2f kg\n", sensor->id, sensor->items_count, sensor->weight);
+            // sprintf(sender_message, "Esteira %d: %d itens, peso total: %.2f kg\n", sensor->id, sensor->items_count, sensor->weight); // Exibir a contagem de itens e o peso da esteira atual
+            sprintf(sender_message, "Contagem total de itens: %d\n", totalItemsCount); // Exibir a contagem total de itens
             write(pipe_fd[1], sender_message, sizeof(sender_message));
             last_display_time = current_time;
         }
