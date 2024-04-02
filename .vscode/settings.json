@@ -2,6 +2,8 @@
   "files.associations": {
     "*.py": "python",
     "system_error": "c",
-    "socket.h": "c"
+    "socket.h": "c",
+    "pthread.h": "c",
+    "stdio.h": "c"
   }
 }
