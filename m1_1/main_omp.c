@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <omp.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -18,6 +18,7 @@ typedef struct {
     int items_count;
     double weight;
     int is_running;
+    omp_lock_t lock;
 } Sensor;
 
 // Variaveis Globais (Compartilhadas entre threads)
@@ -26,10 +27,6 @@ float INTERVALS[NUM_THREADS] = {1, 0.5, 0.1};  // Intervalo em segundos para cad
 int totalItemsCount = 0;
 double totalWeight = 0.0;
 Sensor sensors[NUM_THREADS];
-pthread_t sensors_threads[NUM_THREADS];
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_attr_t threads_attr;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 int pipe_fd[2];
 // Variáveis globais para controlar o tempo de exibição no display
 time_t last_display_time = 0;
@@ -40,50 +37,44 @@ void* sensorThread(void* param) {
     char sender_message[100];
 
     sprintf(sender_message, "Esteira %d: Iniciando...\n", sensor->id);
-
-    pthread_mutex_lock(&(mutex));
     write(pipe_fd[1], sender_message, sizeof(sender_message));
-    pthread_mutex_unlock(&(mutex));
 
     while (1)
     {
-        pthread_mutex_lock(&(mutex));
+        
         if (!sensor->is_running)
-            pthread_cond_wait(&cond, &mutex);
-        pthread_mutex_unlock(&(mutex));
-
+            omp_set_lock(&sensor->lock);
+    
         sensor->items_count++;
         sensor->weight += WEIGHTS[sensor->id];
 
-        pthread_mutex_lock(&(mutex));
-        totalItemsCount++;
-        totalWeight += WEIGHTS[sensor->id];
+        #pragma omp critical
+        {
+            totalItemsCount++;
+            totalWeight += WEIGHTS[sensor->id];
 
-        // Verificar se é necessário atualizar o peso total
-        if (totalItemsCount % ITEMS_UPDATE_WEIGHT == 0) {
-            sprintf(sender_message, "Quantidade total de Itens: %d, Peso total dos itens: %.2f Kg\n", totalItemsCount, totalWeight);
-            write(pipe_fd[1], sender_message, sizeof(sender_message));
+            // Verificar se é necessário atualizar o peso total
+            if (totalItemsCount % ITEMS_UPDATE_WEIGHT == 0) {
+                sprintf(sender_message, "Quantidade total de Itens: %d, Peso total dos itens: %.2f Kg\n", totalItemsCount, totalWeight);
+                write(pipe_fd[1], sender_message, sizeof(sender_message));
+            }
+
+            // Verificar se é necessário enviar a contagem para exibição
+            current_time = time(NULL);
+            if (current_time - last_display_time >= DISPLAY_SECONDS_INTERVAL) {
+                // * Descomente o código abaixo para exibir a contagem de itens e o peso da esteira atual
+                // sprintf(sender_message, "Esteira %d: %d itens, peso total: %.2f kg\n", sensor->id, sensor->items_count, sensor->weight); // Exibir a contagem de itens e o peso da esteira atual
+                // write(pipe_fd[1], sender_message, sizeof(sender_message));
+
+                sprintf(sender_message, "Contagem total de itens: %d\n", totalItemsCount); // Exibir a contagem total de itens
+                write(pipe_fd[1], sender_message, sizeof(sender_message));
+
+                last_display_time = current_time;
+            }
         }
-
-        // Verificar se é necessário enviar a contagem para exibição
-        current_time = time(NULL);
-        if (current_time - last_display_time >= DISPLAY_SECONDS_INTERVAL) {
-            // * Descomente o código abaixo para exibir a contagem de itens e o peso da esteira atual
-            // sprintf(sender_message, "Esteira %d: %d itens, peso total: %.2f kg\n", sensor->id, sensor->items_count, sensor->weight); // Exibir a contagem de itens e o peso da esteira atual
-            // write(pipe_fd[1], sender_message, sizeof(sender_message));
-
-            sprintf(sender_message, "Contagem total de itens: %d\n", totalItemsCount); // Exibir a contagem total de itens
-            write(pipe_fd[1], sender_message, sizeof(sender_message));
-
-            last_display_time = current_time;
-        }
-        pthread_mutex_unlock(&(mutex));
-
 
         usleep(INTERVALS[sensor->id] * 1000000); // usleep usa microssegundos
     }
-
-    pthread_exit(0);
 }
 
 void displayProcess() {
@@ -115,23 +106,19 @@ void* keyboardInput(void* param) {
             write(pipe_fd[1], sender_message, sizeof(sender_message));
             for (int i = 0; i < NUM_THREADS; i++) {
                 sensors[i].is_running = 1;
+                omp_unset_lock(&sensors[i].lock);
             }
-            pthread_mutex_lock(&mutex);
-            pthread_cond_broadcast(&cond);
-            pthread_mutex_unlock(&mutex);
         }
     }
-    pthread_exit(0);
 }
 
 void signalHandler(int signal) {
     if (signal == SIGINT) {
         printf("WARNING: Contagem encerrada pelo operador\n");
-
+        
         for (int i = 0; i < NUM_THREADS; i++) {
-            pthread_cancel(sensors_threads[i]);
+            sensors[i].is_running = 0;
         }
-
         close(pipe_fd[0]);
         close(pipe_fd[1]);
         exit(EXIT_SUCCESS);
@@ -139,21 +126,6 @@ void signalHandler(int signal) {
 }
 
 int main() {
-    pthread_mutex_init(&(mutex), NULL);
-    pthread_attr_init(&threads_attr);
-
-    // Iniciar threads dos sensores e inicializar mutexes
-    for (int i = 0; i < NUM_THREADS; ++i)
-    {
-        Sensor sensor;
-        sensor.id = i;
-        sensor.items_count = 0;
-        sensor.weight = 0;
-        sensors[i] = sensor;
-
-        pthread_create(&sensors_threads[i], &threads_attr, sensorThread, (void*)&sensors[i]); 
-    }
-
     // Inicia processo de exibição
     if (pipe(pipe_fd) == -1) {
         perror("pipe");
@@ -167,19 +139,26 @@ int main() {
         close(pipe_fd[1]);
         signal(SIGINT, signalHandler); // Saida de emergencia
         displayProcess();
-        exit(EXIT_SUCCESS);
+        exit(0);
     } else if (pid > 0) {
         // Processo pai - Somente envia mensagens
 
-        // Cria thread do teclado
-        pthread_t keyboardInputThread;
-        pthread_create(&keyboardInputThread, &threads_attr, keyboardInput, NULL);
-        pthread_join(keyboardInputThread, NULL);
-
-        for (int i = 0; i < NUM_THREADS; i++) {
-            pthread_join(sensors_threads[i], NULL);
+        // Iniciar threads dos sensores
+        #pragma omp parallel num_threads(NUM_THREADS + 1)
+        {  
+            int thread_id = omp_get_thread_num();
+            if (thread_id < NUM_THREADS) {
+                Sensor sensor;
+                sensor.id = thread_id;
+                sensor.items_count = 0;
+                sensor.weight = 0;
+                sensors[thread_id] = sensor;
+                sensorThread((void*)&sensors[thread_id]);
+            } else {
+                keyboardInput(NULL);
+            }
         }
-        
+
         close(pipe_fd[0]);
         close(pipe_fd[1]);
     } else {
@@ -190,9 +169,6 @@ int main() {
 
     // Aguarda o processo filho encerrar
     wait(NULL);
-
-    // Destruir mutex
-    pthread_mutex_destroy(&(mutex));
 
     return 0;
 }
