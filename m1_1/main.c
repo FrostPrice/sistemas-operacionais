@@ -34,14 +34,13 @@ int pipe_fd[2];
 // Variáveis globais para controlar o tempo de exibição no display
 time_t last_display_time = 0;
 time_t current_time;
+char sender_message[100]; // Para enviar mensagens entre processos, usa variavel global já que multiplas threads podem escrever ao mesmo tempo
 
 void* sensorThread(void* param) {
     Sensor* sensor = (Sensor*)param;
-    char sender_message[100];
-
-    sprintf(sender_message, "Esteira %d: Iniciando...\n", sensor->id);
 
     pthread_mutex_lock(&(mutex));
+    sprintf(sender_message, "Esteira %d: Iniciando...\n", sensor->id);
     write(pipe_fd[1], sender_message, sizeof(sender_message));
     pthread_mutex_unlock(&(mutex));
 
@@ -72,7 +71,7 @@ void* sensorThread(void* param) {
             // sprintf(sender_message, "Esteira %d: %d itens, peso total: %.2f kg\n", sensor->id, sensor->items_count, sensor->weight); // Exibir a contagem de itens e o peso da esteira atual
             // write(pipe_fd[1], sender_message, sizeof(sender_message));
 
-            sprintf(sender_message, "Contagem total de itens: %d\n", totalItemsCount); // Exibir a contagem total de itens
+            snprintf(sender_message, sizeof(sender_message),"Contagem total de itens: %d\n", totalItemsCount); // Exibir a contagem total de itens
             write(pipe_fd[1], sender_message, sizeof(sender_message));
 
             last_display_time = current_time;
@@ -88,6 +87,7 @@ void* sensorThread(void* param) {
 
 void displayProcess() {
     char reciever_message[100];
+
     while (1)
     {
         read(pipe_fd[0], reciever_message, sizeof(reciever_message));
