@@ -170,6 +170,7 @@ int main() {
         exit(EXIT_SUCCESS);
     } else if (pid > 0) {
         // Processo pai - Somente envia mensagens
+        close(pipe_fd[0]);
 
         // Cria thread do teclado
         pthread_t keyboardInputThread;
@@ -179,9 +180,6 @@ int main() {
         for (int i = 0; i < NUM_THREADS; i++) {
             pthread_join(sensors_threads[i], NULL);
         }
-        
-        close(pipe_fd[0]);
-        close(pipe_fd[1]);
     } else {
         // Fork falhou
         perror("fork");
