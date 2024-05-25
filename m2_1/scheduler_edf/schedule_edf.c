@@ -141,6 +141,7 @@ void schedule() {
         } else {
             printf("No tasks available. Waiting...\n");
             sleep(1); // Espera um tempo antes de tentar novamente
+            break;
         }
     }
 }

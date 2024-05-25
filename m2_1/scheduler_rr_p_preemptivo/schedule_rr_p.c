@@ -27,6 +27,7 @@ void add(char *name, int priority, int burst) {
     newTask->name = strdup(name); // Usar strdup para duplicar a string
     newTask->priority = priority;
     newTask->burst = burst;
+    newTask->preempted = 0;
 
     // Corrigindo o índice da fila
     int queueIndex = priority - 1;
@@ -98,8 +99,7 @@ void schedule() {
                     pthread_mutex_unlock(&timeMutex);
                     // Re-adiciona a tarefa preemptada de volta à fila de aptos no início da lista
                     int queueIndex = task->priority - 1;
-                    insert(&readyQueue[queueIndex], task);
-                    break;
+                    insert(&readyQueue[queueIndex], task); 
                 }
 
                 timeFlag = 0;
@@ -114,7 +114,7 @@ void schedule() {
                     printf("Task %s completed.\n", task->name);
                     free(task->name); // Liberar a string duplicada
                     free(task); // Liberar a estrutura da tarefa
-                    break;
+                    continue;;
                 }
             }
 
@@ -126,6 +126,7 @@ void schedule() {
         } else {
             printf("No tasks available. Waiting...\n");
             sleep(1); // Espera um tempo antes de tentar novamente
+            break;
         }
     }
 }

@@ -82,7 +82,7 @@ void schedule() {
                 printf("Task %s completed.\n", task->name);
                 free(task->name); // Liberar a string duplicada
                 free(task); // Liberar a estrutura da tarefa
-                break;
+                continue;
             }
             
             if (task->burst > 0) {
@@ -93,6 +93,7 @@ void schedule() {
         } else {
             printf("No tasks available. Waiting...\n");
             sleep(1); // Espera um tempo antes de tentar novamente
+            break;
         }
     }
 }
