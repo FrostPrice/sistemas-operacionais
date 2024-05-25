@@ -4,6 +4,7 @@
     "system_error": "c",
     "socket.h": "c",
     "pthread.h": "c",
-    "stdio.h": "c"
+    "stdio.h": "c",
+    "types.h": "c"
   }
 }

@@ -13,7 +13,6 @@
 #include "task.h"
 #include "list.h"
 #include "schedule_rr_p.h"
-#include "schedule_edf.h"
 
 #define SIZE    100
 
@@ -26,7 +25,6 @@ int main(int argc, char *argv[])
     char *name;
     int priority;
     int burst;
-    int deadline;
 
     in = fopen(argv[1],"r");
     
@@ -35,14 +33,10 @@ int main(int argc, char *argv[])
         name = strsep(&temp,",");
         priority = atoi(strsep(&temp,","));
         burst = atoi(strsep(&temp,","));
-        //Only to EDF algorithm
-        deadline = atoi(srtsep(&temp, ","));
 
         // add the task to the scheduler's list of tasks
         add(name,priority,burst);
-        //to EDF only
-        add(name,priority,burst, deadline);
-
+        
         free(temp);
     }
 

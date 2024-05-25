@@ -1,0 +1,9 @@
+{
+  "files.associations": {
+    "*.py": "python",
+    "stdio.h": "c",
+    "unistd.h": "c",
+    "string.h": "c",
+    "schedule_edf.h": "c"
+  }
+}
