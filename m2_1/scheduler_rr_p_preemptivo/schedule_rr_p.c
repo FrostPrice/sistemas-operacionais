@@ -27,7 +27,6 @@ void add(char *name, int priority, int burst) {
     newTask->name = strdup(name); // Usar strdup para duplicar a string
     newTask->priority = priority;
     newTask->burst = burst;
-    newTask->preempted = 0;
 
     // Corrigindo o índice da fila
     int queueIndex = priority - 1;
